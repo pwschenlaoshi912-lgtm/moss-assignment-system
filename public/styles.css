@@ -6,3 +6,125 @@
 .id-card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.id-card{aspect-ratio:1.58/1;border:2px solid var(--red-dark);border-radius:17px;background:radial-gradient(circle at 94% 10%,rgba(232,180,79,.22),transparent 25%),linear-gradient(135deg,#fffefa,#fff4e7);padding:13px;position:relative;overflow:hidden;break-inside:avoid}.id-card:after{content:"中";position:absolute;right:-3px;bottom:-37px;font-size:100px;color:rgba(200,63,72,.06);font-family:serif}.id-head{display:flex;gap:8px;align-items:center;border-bottom:1px solid #ead5c7;padding-bottom:7px}.mini-seal{width:32px;height:32px;border-radius:9px;background:var(--red-dark);color:white;display:grid;place-items:center;font-weight:900}.id-head b{display:block;color:var(--red-dark);font-size:11px}.id-head small{font-size:8px;color:var(--muted)}.id-body{display:grid;grid-template-columns:1fr 92px;gap:8px;align-items:center;padding-top:8px}.id-info h3{font-size:13px;margin:0 0 5px}.id-info p{font-size:9.5px;margin:3px 0;color:#65565a}.qr-box{width:86px;height:86px;background:white;padding:3px;border-radius:6px;position:relative;z-index:1}.qr-box img,.qr-box canvas{width:80px!important;height:80px!important}.student-view{min-height:100vh;padding:25px}.student-shell{width:min(970px,100%);margin:auto}.student-hero{background:linear-gradient(135deg,#2e7b64,var(--jade));color:white;padding:23px;border-radius:23px;display:flex;justify-content:space-between;gap:15px;align-items:center;box-shadow:var(--shadow);margin-bottom:15px}.student-hero h1{margin:0 0 4px}.student-hero p{margin:0;opacity:.8}.student-profile{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.14);padding:9px 11px;border-radius:15px}.student-profile b,.student-profile small{display:block}.readonly{padding:13px;border:1px solid #cce6da;background:#eef8f3;color:#306b59;border-radius:14px;margin-bottom:15px}
 dialog{border:0;border-radius:21px;padding:0;width:min(570px,94vw);box-shadow:0 30px 90px rgba(62,25,30,.34)}dialog::backdrop{background:rgba(48,31,34,.48)}.wide-dialog{width:min(880px,96vw)}.dialog-form{padding:19px;background:var(--paper);display:grid;gap:13px}.dialog-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.dialog-head h2{margin:0}.dialog-head p{margin:3px 0 0;color:var(--muted)}.icon-btn{border:0;background:var(--red-soft);color:var(--red-dark);width:32px;height:32px;border-radius:10px;font-size:20px}.dialog-form label{display:grid;gap:6px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.dialog-actions{display:flex;justify-content:flex-end;gap:8px}.roster-wrap{max-height:62vh}
 @media(max-width:1100px){.stats-grid{grid-template-columns:repeat(2,1fr)}.two-col{grid-template-columns:1fr}.assignment-grid{grid-template-columns:repeat(2,1fr)}.id-card-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:760px){.role-grid{grid-template-columns:1fr}.hero{padding:24px}.hero h1{font-size:23px}.app-view{grid-template-columns:1fr}.sidebar{height:auto;position:static;padding:14px}.sidebar nav{display:flex;overflow:auto}.nav-btn{min-width:max-content}.sidebar-note{display:none}.main{padding:19px 13px 40px}.topbar{align-items:flex-start}.teacher-chip b{display:none}.stats-grid,.assignment-grid,.id-card-grid{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.student-hero{align-items:flex-start;flex-direction:column}}@media print{body{background:white}.no-print,.sidebar,.topbar{display:none!important}.app-view{display:block}.main{padding:0}.teacher-page{display:none!important}#page-cards{display:block!important}.panel{border:0;box-shadow:none;padding:0}.id-card-grid{grid-template-columns:repeat(2,1fr);gap:8mm}.id-card{box-shadow:none}}
+
+/* ===== ปรับบัตรให้เท่าขนาดบัตรประชาชน 85.6 × 54 มม. ===== */
+
+.id-card-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,85.6mm);
+  gap:18px;
+  justify-content:center;
+  align-items:start;
+}
+
+.id-card{
+  width:85.6mm;
+  height:54mm;
+  aspect-ratio:auto;
+  padding:3.5mm;
+  border:2px solid var(--red-dark);
+  border-radius:14px;
+  position:relative;
+  overflow:hidden;
+  break-inside:avoid;
+  page-break-inside:avoid;
+}
+
+.id-card:after{
+  right:1mm;
+  bottom:-8mm;
+  font-size:34mm;
+}
+
+.id-head{
+  gap:2.5mm;
+  padding-bottom:2mm;
+}
+
+.mini-seal{
+  width:10mm;
+  height:10mm;
+  border-radius:3mm;
+  font-size:18px;
+  flex-shrink:0;
+}
+
+.id-head b{
+  font-size:13px;
+  line-height:1.25;
+}
+
+.id-head small{
+  font-size:9px;
+  line-height:1.25;
+}
+
+.id-body{
+  display:grid;
+  grid-template-columns:1fr 23mm;
+  gap:3mm;
+  align-items:center;
+  padding-top:2.5mm;
+}
+
+.id-info h3{
+  font-size:16px;
+  line-height:1.3;
+  margin:0 0 2mm;
+  font-weight:800;
+}
+
+.id-info p{
+  font-size:11.5px;
+  line-height:1.35;
+  margin:1mm 0;
+}
+
+.id-info p b{
+  font-size:12px;
+}
+
+.qr-box{
+  width:22mm;
+  height:22mm;
+  padding:1mm;
+  display:grid;
+  place-items:center;
+}
+
+.qr-box img,
+.qr-box canvas{
+  width:20mm !important;
+  height:20mm !important;
+}
+
+@media(max-width:760px){
+  .id-card-grid{
+    grid-template-columns:85.6mm;
+    justify-content:center;
+  }
+
+  .id-card{
+    width:85.6mm;
+    height:54mm;
+  }
+}
+
+@media print{
+  @page{
+    size:A4;
+    margin:10mm;
+  }
+
+  .id-card-grid{
+    grid-template-columns:repeat(2,85.6mm);
+    gap:6mm;
+    justify-content:start;
+  }
+
+  .id-card{
+    width:85.6mm;
+    height:54mm;
+    box-shadow:none;
+  }
+}

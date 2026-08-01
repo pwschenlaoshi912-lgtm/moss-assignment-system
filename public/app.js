@@ -449,4 +449,39 @@ function toast(message, isError = false) { const element = $("#toast"); element.
 window.openRoster = openRoster;
 window.openAssignmentDialog = openAssignmentDialog;
 window.archiveAssignment = archiveAssignment;
-window.changeStatus = changeStatus;
+window.changeStatus = changeStatus;// แก้ปุ่ม ดูรายชื่อ / แก้ไข / ปิดงาน
+// ให้ทำงานโดยไม่พึ่ง inline onclick
+document.addEventListener(
+  "click",
+  function (event) {
+    const button = event.target.closest(".assignment-actions button");
+
+    if (!button) return;
+
+    const oldOnclick = button.getAttribute("onclick") || "";
+    const idMatch = oldOnclick.match(/'([^']+)'/);
+
+    if (!idMatch) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const assignmentId = idMatch[1];
+    const action = button.textContent.trim();
+
+    if (action === "ดูรายชื่อ") {
+      openRoster(assignmentId);
+      return;
+    }
+
+    if (action === "แก้ไข") {
+      openAssignmentDialog(assignmentId);
+      return;
+    }
+
+    if (action === "ปิดงาน") {
+      archiveAssignment(assignmentId);
+    }
+  },
+  true
+);

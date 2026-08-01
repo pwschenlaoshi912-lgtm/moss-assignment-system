@@ -463,35 +463,390 @@ function renderSummary() {
   $("#summaryTableBody").innerHTML = rows.length ? rows.map((row) => `<tr><td>${row.student.number}</td><td><b>${escapeHtml(row.student.fullName)}</b><br><small>${escapeHtml(row.student.studentId)}</small></td><td>${escapeHtml(row.student.className)}</td><td>${row.total}</td><td>${row.submitted}</td><td>${row.pending}</td><td>${row.missing}</td><td style="min-width:150px"><div class="progress"><div style="width:${row.percent}%"></div></div><small>${row.percent}%</small></td></tr>`).join("") : `<tr><td colspan="8" class="empty">ยังไม่มีนักเรียน</td></tr>`;
 }
 
+// ==========================================
+// หน้าต่างตรวจรายชื่อนักเรียนแบบ Premium
+// ==========================================
+
+function getRosterStatusMeta(status) {
+  const statusMap = {
+    submitted: {
+      label: "ส่งแล้ว",
+      icon: "✓",
+      rowClass: "submitted",
+      badgeClass: "submitted",
+      selectClass: "submitted"
+    },
+
+    pending: {
+      label: "งานค้าง",
+      icon: "⏳",
+      rowClass: "pending",
+      badgeClass: "pending",
+      selectClass: "pending"
+    },
+
+    missing: {
+      label: "ไม่ส่ง",
+      icon: "!",
+      rowClass: "missing",
+      badgeClass: "missing",
+      selectClass: "missing"
+    }
+  };
+
+  return statusMap[status] || statusMap.pending;
+}
+
+
+// เปิดหน้าต่างรายชื่อนักเรียน
 function openRoster(assignmentId) {
   state.rosterAssignmentId = assignmentId;
-  const assignment = state.teacherData.assignments.find((item) => item.assignmentId === assignmentId);
-  $("#rosterTitle").textContent = assignment?.title || "ตรวจสถานะงาน";
-  $("#rosterMeta").textContent = assignment ? `กำหนดส่ง ${formatDate(assignment.dueDate)}` : "";
+
+  // ล้างคำค้นหาเดิม
   $("#rosterSearch").value = "";
+
+  // สร้างข้อมูลในหน้าต่าง
   renderRoster();
+
+  // เปิดหน้าต่าง
   $("#rosterDialog").showModal();
+
+  // โฟกัสช่องค้นหา
+  setTimeout(() => {
+    $("#rosterSearch").focus();
+  }, 100);
 }
 
+
+// แสดงรายชื่อนักเรียนและสถานะ
 function renderRoster() {
-  if (!state.teacherData || !state.rosterAssignmentId) return;
-  const query = $("#rosterSearch").value.trim().toLowerCase();
-  const students = state.teacherData.students.filter((student) => `${student.studentId} ${student.fullName}`.toLowerCase().includes(query));
-  $("#rosterBody").innerHTML = students.map((student) => {
-    const status = getStatus(state.rosterAssignmentId, student.studentId);
-    return `<tr><td>${student.number}</td><td>${escapeHtml(student.studentId)}</td><td><b>${escapeHtml(student.fullName)}</b></td><td><select class="status-select" onchange="changeStatus('${jsString(student.studentId)}',this.value)"><option value="submitted" ${status === "submitted" ? "selected" : ""}>ส่งแล้ว</option><option value="pending" ${status === "pending" ? "selected" : ""}>งานค้าง</option><option value="missing" ${status === "missing" ? "selected" : ""}>ไม่ส่ง</option></select></td></tr>`;
-  }).join("");
+  if (
+    !state.teacherData ||
+    !state.rosterAssignmentId
+  ) {
+    return;
+  }
+
+  const assignment =
+    state.teacherData.assignments.find(
+      (item) =>
+        item.assignmentId ===
+        state.rosterAssignmentId
+    );
+
+  if (!assignment) {
+    $("#rosterTitle").textContent =
+      "ไม่พบข้อมูลงาน";
+
+    $("#rosterMeta").textContent = "";
+
+    $("#rosterBody").innerHTML = `
+      <tr>
+        <td
+          colspan="4"
+          class="roster-empty"
+        >
+          ไม่พบงานที่เลือก
+        </td>
+      </tr>
+    `;
+
+    return;
+  }
+
+
+  // คำนวณจำนวนสถานะแต่ละแบบ
+  const allStudents =
+    state.teacherData.students || [];
+
+  let submittedCount = 0;
+  let pendingCount = 0;
+  let missingCount = 0;
+
+  allStudents.forEach((student) => {
+    const status = getStatus(
+      assignment.assignmentId,
+      student.studentId
+    );
+
+    if (status === "submitted") {
+      submittedCount++;
+    } else if (status === "missing") {
+      missingCount++;
+    } else {
+      pendingCount++;
+    }
+  });
+
+
+  // ตั้งชื่อและรายละเอียดด้านบน
+  $("#rosterTitle").textContent =
+    assignment.title;
+
+  $("#rosterMeta").textContent =
+    `กำหนดส่ง ${formatDate(assignment.dueDate)} · ` +
+    `ส่งแล้ว ${submittedCount} คน · ` +
+    `งานค้าง ${pendingCount} คน · ` +
+    `ไม่ส่ง ${missingCount} คน`;
+
+
+  // ค้นหานักเรียน
+  const keyword = String(
+    $("#rosterSearch").value || ""
+  )
+    .trim()
+    .toLowerCase();
+
+
+  const students = [...allStudents]
+    .filter((student) => {
+      const searchableText = [
+        student.studentId,
+        student.fullName,
+        student.className,
+        student.number
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return (
+        !keyword ||
+        searchableText.includes(keyword)
+      );
+    })
+
+    // เรียงตามเลขที่
+    .sort((a, b) => {
+      return (
+        Number(a.number || 999) -
+        Number(b.number || 999)
+      );
+    });
+
+
+  // ไม่พบรายชื่อ
+  if (!students.length) {
+    $("#rosterBody").innerHTML = `
+      <tr>
+        <td
+          colspan="4"
+          class="roster-empty"
+        >
+          ไม่พบนักเรียนตามคำค้นหา
+        </td>
+      </tr>
+    `;
+
+    return;
+  }
+
+
+  // สร้างตารางรายชื่อ
+  $("#rosterBody").innerHTML =
+    students
+      .map((student) => {
+        const status = getStatus(
+          assignment.assignmentId,
+          student.studentId
+        );
+
+        const meta =
+          getRosterStatusMeta(status);
+
+        return `
+          <tr
+            class="roster-row ${meta.rowClass}"
+            data-student-id="${escapeHtml(
+              student.studentId
+            )}"
+          >
+
+            <td>
+              <b>${student.number || "-"}</b>
+            </td>
+
+
+            <td>
+              ${escapeHtml(
+                student.studentId || "-"
+              )}
+            </td>
+
+
+            <td>
+              <div class="roster-student-name">
+                ${escapeHtml(
+                  student.fullName || "-"
+                )}
+              </div>
+
+              <div class="roster-student-sub">
+                ${escapeHtml(
+                  student.className || ""
+                )}
+              </div>
+            </td>
+
+
+            <td>
+              <div class="roster-status-cell">
+
+                <span
+                  class="roster-status-badge ${meta.badgeClass}"
+                >
+                  ${meta.icon} ${meta.label}
+                </span>
+
+
+                <select
+                  class="roster-status-select ${meta.selectClass}"
+                  onchange="
+                    changeStatus(
+                      '${jsString(student.studentId)}',
+                      this.value,
+                      this
+                    )
+                  "
+                >
+
+                  <option
+                    value="submitted"
+                    ${
+                      status === "submitted"
+                        ? "selected"
+                        : ""
+                    }
+                  >
+                    ส่งแล้ว
+                  </option>
+
+
+                  <option
+                    value="pending"
+                    ${
+                      status === "pending"
+                        ? "selected"
+                        : ""
+                    }
+                  >
+                    งานค้าง
+                  </option>
+
+
+                  <option
+                    value="missing"
+                    ${
+                      status === "missing"
+                        ? "selected"
+                        : ""
+                    }
+                  >
+                    ไม่ส่ง
+                  </option>
+
+                </select>
+
+              </div>
+            </td>
+
+          </tr>
+        `;
+      })
+      .join("");
 }
 
-async function changeStatus(studentId, status) {
+
+// เปลี่ยนสถานะนักเรียน
+async function changeStatus(
+  studentId,
+  status,
+  selectElement = null
+) {
+  const assignmentId =
+    state.rosterAssignmentId;
+
+  if (!assignmentId || !studentId) {
+    toast(
+      "ไม่พบข้อมูลงานหรือนักเรียน",
+      true
+    );
+    return;
+  }
+
+
+  const oldStatus = getStatus(
+    assignmentId,
+    studentId
+  );
+
+
+  // ปิดช่องชั่วคราวระหว่างบันทึก
+  if (selectElement) {
+    selectElement.disabled = true;
+    selectElement.style.opacity = "0.6";
+  }
+
+
   try {
-    await api("setSubmissionStatus", { token: state.teacherToken, assignmentId: state.rosterAssignmentId, studentId, status });
-    state.teacherData.records[`${state.rosterAssignmentId}|${studentId}`] = { status };
-    renderTeacher();
-    toast("บันทึกสถานะแล้ว");
+    const result = await api(
+      "setSubmissionStatus",
+      {
+        token: state.teacherToken,
+        assignmentId,
+        studentId,
+        status
+      }
+    );
+
+
+    const recordKey =
+      `${assignmentId}|${studentId}`;
+
+    const oldRecord =
+      state.teacherData.records[recordKey] ||
+      {};
+
+
+    // อัปเดตข้อมูลในหน้าเว็บทันที
+    state.teacherData.records[recordKey] = {
+      ...oldRecord,
+      ...result,
+      status,
+      updatedAt:
+        result?.updatedAt ||
+        new Date().toISOString()
+    };
+
+
+    // อัปเดตเฉพาะส่วนที่เกี่ยวข้อง
+    renderRoster();
+    renderDashboard();
+    renderAssignments();
+    renderStudents();
+    renderSummary();
+
+
+    const statusMeta =
+      getRosterStatusMeta(status);
+
+    toast(
+      `เปลี่ยนสถานะเป็น “${statusMeta.label}” แล้ว`
+    );
+
   } catch (error) {
-    toast(error.message, true);
-    await loadTeacherData();
+
+    // คืนค่าเดิมหากบันทึกไม่สำเร็จ
+    if (selectElement) {
+      selectElement.value = oldStatus;
+      selectElement.disabled = false;
+      selectElement.style.opacity = "1";
+    }
+
+    toast(
+      error.message ||
+      "บันทึกสถานะไม่สำเร็จ",
+      true
+    );
   }
 }
 

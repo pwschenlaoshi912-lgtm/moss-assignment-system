@@ -2,126 +2,987 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#9d2933">
-  <title>ระบบเช็กงานเหล่าซือมอส | 陈老师作业管理系统</title>
-  <link rel="stylesheet" href="/styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
-  <script src="/app.js" defer></script>
-</head>
-<body>
-  <div id="loading" class="loading hidden"><div class="spinner"></div><span>กำลังโหลดข้อมูล...</span></div>
-  <div id="toast" class="toast"></div>
 
-  <section id="entryView" class="entry-view">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <meta
+    name="theme-color"
+    content="#9d2933"
+  >
+
+  <title>
+    ระบบเช็กงานเหล่าซือมอส | 陈老师作业管理系统
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="/styles.css"
+  >
+
+  <script
+    src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"
+    defer
+  ></script>
+
+  <script
+    src="/app.js"
+    defer
+  ></script>
+</head>
+
+<body>
+
+  <!-- หน้ากำลังโหลด -->
+  <div
+    id="loading"
+    class="loading hidden"
+  >
+    <div class="spinner"></div>
+    <span>กำลังโหลดข้อมูล...</span>
+  </div>
+
+  <!-- ข้อความแจ้งเตือน -->
+  <div
+    id="toast"
+    class="toast"
+  ></div>
+
+
+  <!-- =========================
+       หน้าเลือกประเภทผู้ใช้งาน
+       ========================= -->
+  <section
+    id="entryView"
+    class="entry-view"
+  >
     <div class="entry-shell">
+
       <header class="hero">
         <div class="seal">陈</div>
-        <div><h1 id="entryTitle">ระบบเช็กงานเหล่าซือมอส</h1><p id="entryChinese">陈老师作业管理系统</p></div>
+
+        <div>
+          <h1 id="entryTitle">
+            ระบบเช็กงานเหล่าซือมอส
+          </h1>
+
+          <p id="entryChinese">
+            陈老师作业管理系统
+          </p>
+        </div>
+
         <div class="plum">梅</div>
       </header>
+
+
       <div class="role-grid">
+
+        <!-- ฝั่งครู -->
         <article class="role-card">
-          <div class="role-icon red">👨🏻‍🏫</div><h2>ครูผู้สอน</h2>
-          <p>เลือกวิชา เพิ่มงาน สแกน QR ตรวจสถานะ และพิมพ์บัตรนักเรียน</p>
-          <form id="teacherLoginForm" class="login-form">
-            <label for="teacherPin">รหัสระบบครู</label>
-            <input id="teacherPin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="กรอกรหัสครู" required>
-            <button class="btn primary" type="submit">เข้าสู่ระบบครู</button>
+
+          <div class="role-icon red">
+            👨🏻‍🏫
+          </div>
+
+          <h2>ครูผู้สอน</h2>
+
+          <p>
+            เลือกวิชา เพิ่มงาน สแกน QR ตรวจสถานะ
+            และพิมพ์บัตรนักเรียน
+          </p>
+
+          <form
+            id="teacherLoginForm"
+            class="login-form"
+          >
+            <label for="teacherPin">
+              รหัสระบบครู
+            </label>
+
+            <input
+              id="teacherPin"
+              type="password"
+              inputmode="numeric"
+              autocomplete="current-password"
+              placeholder="กรอกรหัสครู"
+              required
+            >
+
+            <button
+              class="btn primary"
+              type="submit"
+            >
+              เข้าสู่ระบบครู
+            </button>
           </form>
+
         </article>
+
+
+        <!-- ฝั่งนักเรียน -->
         <article class="role-card">
-          <div class="role-icon jade">🐼</div><h2>นักเรียนตรวจงาน</h2>
-          <p>กรอกเลขประจำตัวเพื่อดูงานของตนเอง แบบอ่านอย่างเดียว</p>
-          <form id="studentLoginForm" class="login-form">
-            <label for="studentIdLogin">เลขประจำตัวนักเรียน</label>
-            <input id="studentIdLogin" inputmode="numeric" autocomplete="off" placeholder="เช่น 29021" required>
-            <button class="btn jade" type="submit">ตรวจงานของฉัน</button>
+
+          <div class="role-icon jade">
+            🐼
+          </div>
+
+          <h2>นักเรียนตรวจงาน</h2>
+
+          <p>
+            กรอกเลขประจำตัวเพื่อดูงานของตนเอง
+            แบบอ่านอย่างเดียว
+          </p>
+
+          <form
+            id="studentLoginForm"
+            class="login-form"
+          >
+            <label for="studentIdLogin">
+              เลขประจำตัวนักเรียน
+            </label>
+
+            <input
+              id="studentIdLogin"
+              inputmode="numeric"
+              autocomplete="off"
+              placeholder="เช่น 29021"
+              required
+            >
+
+            <button
+              class="btn jade"
+              type="submit"
+            >
+              ตรวจงานของฉัน
+            </button>
           </form>
+
         </article>
+
       </div>
     </div>
   </section>
 
-  <section id="teacherView" class="app-view hidden">
+
+  <!-- =========================
+       ระบบฝั่งครู
+       ========================= -->
+  <section
+    id="teacherView"
+    class="app-view hidden"
+  >
+
+    <!-- เมนูด้านข้าง -->
     <aside class="sidebar no-print">
-      <div class="brand"><div class="brand-seal">陈</div><div><b>ระบบเช็กงานเหล่าซือมอส</b><small>陈老师作业管理系统</small></div></div>
-      <label class="course-label">เลือกรายวิชา</label>
-      <select id="teacherCourseSelect" class="course-select"></select>
+
+      <div class="brand">
+
+        <div class="brand-seal">
+          陈
+        </div>
+
+        <div>
+          <b>ระบบเช็กงานเหล่าซือมอส</b>
+          <small>陈老师作业管理系统</small>
+        </div>
+
+      </div>
+
+
+      <label class="course-label">
+        เลือกรายวิชา
+      </label>
+
+      <select
+        id="teacherCourseSelect"
+        class="course-select"
+      ></select>
+
+
       <nav id="teacherNav">
-        <button class="nav-btn active" data-page="dashboard">🏮 แดชบอร์ด</button>
-        <button class="nav-btn" data-page="scanner">📷 สแกนส่งงาน</button>
-        <button class="nav-btn" data-page="assignments">📚 จัดการงาน</button>
-        <button class="nav-btn" data-page="students">👧🏻 รายชื่อนักเรียน</button>
-        <button class="nav-btn" data-page="cards">🪪 บัตรนักเรียน</button>
-        <button class="nav-btn" data-page="summary">📊 สรุปงานค้าง</button>
+
+        <button
+          class="nav-btn active"
+          data-page="dashboard"
+        >
+          🏮 แดชบอร์ด
+        </button>
+
+        <button
+          class="nav-btn"
+          data-page="scanner"
+        >
+          📷 สแกนส่งงาน
+        </button>
+
+        <button
+          class="nav-btn"
+          data-page="assignments"
+        >
+          📚 จัดการงาน
+        </button>
+
+        <button
+          class="nav-btn"
+          data-page="students"
+        >
+          👧🏻 รายชื่อนักเรียน
+        </button>
+
+        <button
+          class="nav-btn"
+          data-page="cards"
+        >
+          🪪 บัตรนักเรียน
+        </button>
+
+        <button
+          class="nav-btn"
+          data-page="summary"
+        >
+          📊 สรุปงานค้าง
+        </button>
+
       </nav>
-      <div class="sidebar-note"><b>แก้ข้อมูลที่ Google Sheet</b><span>ชื่อ ห้อง เลขที่ และเลขประจำตัวจะอัปเดตเมื่อกดโหลดข้อมูลใหม่</span></div>
+
+
+      <div class="sidebar-note">
+        <b>แก้ข้อมูลที่ Google Sheet</b>
+
+        <span>
+          ชื่อ ห้อง เลขที่ และเลขประจำตัว
+          จะอัปเดตเมื่อกดโหลดข้อมูลใหม่
+        </span>
+      </div>
+
     </aside>
 
+
+    <!-- เนื้อหาหลัก -->
     <main class="main">
+
       <header class="topbar no-print">
-        <div><h1 id="teacherPageTitle">แดชบอร์ด</h1><p id="teacherPageDesc">ภาพรวมรายวิชาที่เลือก</p></div>
-        <div class="teacher-chip"><span>👨🏻‍🏫</span><b id="teacherDisplayName">เหล่าซือมอส</b><button id="teacherLogout" class="btn ghost small">ออก</button></div>
+
+        <div>
+          <h1 id="teacherPageTitle">
+            แดชบอร์ด
+          </h1>
+
+          <p id="teacherPageDesc">
+            ภาพรวมรายวิชาที่เลือก
+          </p>
+        </div>
+
+
+        <div class="teacher-chip">
+
+          <span>👨🏻‍🏫</span>
+
+          <b id="teacherDisplayName">
+            เหล่าซือมอส
+          </b>
+
+          <button
+            id="teacherLogout"
+            class="btn ghost small"
+          >
+            ออก
+          </button>
+
+        </div>
+
       </header>
 
-      <section id="page-dashboard" class="teacher-page active">
-        <div id="courseBanner" class="course-banner"></div>
-        <div id="statsGrid" class="stats-grid"></div>
+
+      <!-- =========================
+           หน้าแดชบอร์ด
+           ========================= -->
+      <section
+        id="page-dashboard"
+        class="teacher-page active"
+      >
+
+        <div
+          id="courseBanner"
+          class="course-banner"
+        ></div>
+
+        <div
+          id="statsGrid"
+          class="stats-grid"
+        ></div>
+
+
         <div class="two-col">
-          <article class="panel"><div class="panel-head"><h2>งานล่าสุด</h2><button class="btn primary" data-open-assignment>+ เพิ่มงาน</button></div><div id="latestAssignment"></div></article>
-          <article class="panel"><div class="panel-head"><h2>ทางลัด</h2></div><div class="quick-grid">
-            <button class="quick" data-go="scanner">📷<b>เริ่มสแกน</b><span>เลือกงานและสแกนบัตร</span></button>
-            <button class="quick" data-go="cards">🪪<b>พิมพ์บัตร</b><span>QR คือเลขประจำตัว</span></button>
-            <button class="quick" data-go="summary">📊<b>ดูงานค้าง</b><span>สรุปรายบุคคล</span></button>
-            <button class="quick" data-go="assignments">📚<b>จัดการงาน</b><span>เพิ่มและปิดงาน</span></button>
-          </div></article>
-        </div>
-      </section>
 
-      <section id="page-scanner" class="teacher-page">
-        <div class="two-col scan-layout">
-          <article class="panel"><div class="panel-head"><div><h2>สแกนบัตรเพื่อเช็กส่งงาน</h2><p>QR บรรจุเลขประจำตัวนักเรียน</p></div></div>
-            <label>งานที่กำลังตรวจ</label><select id="scanAssignmentSelect" class="input"></select>
-            <div class="scanner-box"><div class="scanner-symbol">▣</div><h3>พร้อมรับข้อมูลจากเครื่องสแกน</h3><p>คลิกช่องด้านล่างแล้วสแกน ระบบจะบันทึกเป็น “ส่งแล้ว” อัตโนมัติ</p><input id="scannerInput" class="scan-input" inputmode="numeric" autocomplete="off" placeholder="สแกน QR หรือพิมพ์เลขประจำตัว"><div id="scanMessage" class="scan-message hidden"></div></div>
+          <article class="panel">
+
+            <div class="panel-head">
+
+              <h2>งานล่าสุด</h2>
+
+              <button
+                class="btn primary"
+                data-open-assignment
+              >
+                + เพิ่มงาน
+              </button>
+
+            </div>
+
+            <div id="latestAssignment"></div>
+
           </article>
-          <article class="panel"><div class="panel-head"><h2>รายการที่สแกนในรอบนี้</h2><button id="clearLocalScans" class="btn ghost small">ล้างหน้าจอ</button></div><div id="localScanHistory" class="history-list"></div></article>
+
+
+          <article class="panel">
+
+            <div class="panel-head">
+              <h2>ทางลัด</h2>
+            </div>
+
+
+            <div class="quick-grid">
+
+              <button
+                class="quick"
+                data-go="scanner"
+              >
+                📷
+                <b>เริ่มสแกน</b>
+                <span>เลือกงานและสแกนบัตร</span>
+              </button>
+
+
+              <button
+                class="quick"
+                data-go="cards"
+              >
+                🪪
+                <b>พิมพ์บัตร</b>
+                <span>QR คือเลขประจำตัว</span>
+              </button>
+
+
+              <button
+                class="quick"
+                data-go="summary"
+              >
+                📊
+                <b>ดูงานค้าง</b>
+                <span>สรุปรายบุคคล</span>
+              </button>
+
+
+              <button
+                class="quick"
+                data-go="assignments"
+              >
+                📚
+                <b>จัดการงาน</b>
+                <span>เพิ่มและปิดงาน</span>
+              </button>
+
+            </div>
+
+          </article>
+
         </div>
+
       </section>
 
-      <section id="page-assignments" class="teacher-page">
-        <div class="page-actions no-print"><div><h2>งานในรายวิชานี้</h2><p>กดดูรายชื่อเพื่อปรับสถานะรายบุคคล</p></div><button class="btn primary" data-open-assignment>+ เพิ่มงานใหม่</button></div>
-        <div id="assignmentGrid" class="assignment-grid"></div>
+
+      <!-- =========================
+           หน้าสแกนส่งงาน
+           ========================= -->
+      <section
+        id="page-scanner"
+        class="teacher-page"
+      >
+
+        <div class="two-col scan-layout">
+
+          <article class="panel">
+
+            <div class="panel-head">
+
+              <div>
+                <h2>สแกนบัตรเพื่อเช็กส่งงาน</h2>
+                <p>QR บรรจุเลขประจำตัวนักเรียน</p>
+              </div>
+
+            </div>
+
+
+            <label for="scanAssignmentSelect">
+              งานที่กำลังตรวจ
+            </label>
+
+            <select
+              id="scanAssignmentSelect"
+              class="input"
+            ></select>
+
+
+            <div class="scanner-box">
+
+              <div class="scanner-symbol">
+                ▣
+              </div>
+
+              <h3>
+                พร้อมรับข้อมูลจากเครื่องสแกน
+              </h3>
+
+              <p>
+                คลิกช่องด้านล่างแล้วสแกน
+                ระบบจะบันทึกเป็น “ส่งแล้ว” อัตโนมัติ
+              </p>
+
+              <input
+                id="scannerInput"
+                class="scan-input"
+                inputmode="numeric"
+                autocomplete="off"
+                placeholder="สแกน QR หรือพิมพ์เลขประจำตัว"
+              >
+
+              <div
+                id="scanMessage"
+                class="scan-message hidden"
+              ></div>
+
+            </div>
+
+          </article>
+
+
+          <article class="panel">
+
+            <div class="panel-head">
+
+              <h2>
+                รายการที่สแกนในรอบนี้
+              </h2>
+
+              <button
+                id="clearLocalScans"
+                class="btn ghost small"
+              >
+                ล้างหน้าจอ
+              </button>
+
+            </div>
+
+            <div
+              id="localScanHistory"
+              class="history-list"
+            ></div>
+
+          </article>
+
+        </div>
+
       </section>
 
-      <section id="page-students" class="teacher-page">
-        <article class="panel"><div class="panel-head"><div><h2>รายชื่อนักเรียน</h2><p>แก้ไขข้อมูลจริงได้จากชีต Students</p></div><button id="reloadData" class="btn ghost">↻ โหลดข้อมูลใหม่</button></div>
-          <div class="filters"><input id="studentSearch" class="input" placeholder="ค้นหาชื่อหรือเลขประจำตัว"><select id="studentClassFilter" class="input"></select></div>
-          <div class="table-wrap"><table><thead><tr><th>เลขที่</th><th>เลขประจำตัว</th><th>ชื่อ-นามสกุล</th><th>ชั้น/ห้อง</th><th>ส่งแล้ว</th><th>งานค้าง</th></tr></thead><tbody id="studentTableBody"></tbody></table></div>
+
+      <!-- =========================
+           หน้าจัดการงาน
+           ========================= -->
+      <section
+        id="page-assignments"
+        class="teacher-page"
+      >
+
+        <div class="page-actions no-print">
+
+          <div>
+            <h2>งานในรายวิชานี้</h2>
+
+            <p>
+              กดดูรายชื่อเพื่อปรับสถานะรายบุคคล
+            </p>
+          </div>
+
+          <button
+            class="btn primary"
+            data-open-assignment
+          >
+            + เพิ่มงานใหม่
+          </button>
+
+        </div>
+
+        <div
+          id="assignmentGrid"
+          class="assignment-grid"
+        ></div>
+
+      </section>
+
+
+      <!-- =========================
+           หน้ารายชื่อนักเรียน
+           ========================= -->
+      <section
+        id="page-students"
+        class="teacher-page"
+      >
+
+        <article class="panel">
+
+          <div class="panel-head">
+
+            <div>
+              <h2>รายชื่อนักเรียน</h2>
+
+              <p>
+                แก้ไขข้อมูลจริงได้จากชีต Students
+              </p>
+            </div>
+
+            <button
+              id="reloadData"
+              class="btn ghost"
+            >
+              ↻ โหลดข้อมูลใหม่
+            </button>
+
+          </div>
+
+
+          <div class="filters">
+
+            <input
+              id="studentSearch"
+              class="input"
+              placeholder="ค้นหาชื่อหรือเลขประจำตัว"
+            >
+
+            <select
+              id="studentClassFilter"
+              class="input"
+            ></select>
+
+          </div>
+
+
+          <div class="table-wrap">
+
+            <table>
+
+              <thead>
+                <tr>
+                  <th>เลขที่</th>
+                  <th>เลขประจำตัว</th>
+                  <th>ชื่อ-นามสกุล</th>
+                  <th>ชั้น/ห้อง</th>
+                  <th>ส่งแล้ว</th>
+                  <th>งานค้าง</th>
+                </tr>
+              </thead>
+
+              <tbody id="studentTableBody"></tbody>
+
+            </table>
+
+          </div>
+
         </article>
+
       </section>
 
-      <section id="page-cards" class="teacher-page">
-        <article class="panel card-panel"><div class="panel-head no-print"><div><h2>บัตรนักเรียนพร้อม QR Code</h2><p>ชื่อ-นามสกุล เลขประจำตัว ชั้น/ห้อง และเลขที่</p></div><button id="printCards" class="btn primary">🖨️ พิมพ์บัตร</button></div><div class="filters no-print"><select id="cardClassFilter" class="input"></select></div><div id="idCardGrid" class="id-card-grid"></div></article>
+
+      <!-- =========================
+           หน้าบัตรนักเรียน
+           ========================= -->
+      <section
+        id="page-cards"
+        class="teacher-page"
+      >
+
+        <article class="panel card-panel">
+
+          <div class="panel-head no-print">
+
+            <div>
+              <h2>
+                บัตรนักเรียนพร้อม QR Code
+              </h2>
+
+              <p>
+                ชื่อ-นามสกุล เลขประจำตัว
+                ชั้น/ห้อง และเลขที่
+              </p>
+            </div>
+
+            <button
+              id="printCards"
+              class="btn primary"
+            >
+              🖨️ พิมพ์บัตร
+            </button>
+
+          </div>
+
+
+          <div class="filters no-print">
+
+            <select
+              id="cardClassFilter"
+              class="input"
+            ></select>
+
+          </div>
+
+
+          <div
+            id="idCardGrid"
+            class="id-card-grid"
+          ></div>
+
+        </article>
+
       </section>
 
-      <section id="page-summary" class="teacher-page">
-        <div id="summaryStats" class="stats-grid"></div>
-        <article class="panel"><div class="panel-head"><h2>สรุปรายบุคคล</h2></div><div class="table-wrap"><table><thead><tr><th>เลขที่</th><th>ชื่อ-นามสกุล</th><th>ชั้น</th><th>งานทั้งหมด</th><th>ส่งแล้ว</th><th>ค้าง</th><th>ไม่ส่ง</th><th>ความคืบหน้า</th></tr></thead><tbody id="summaryTableBody"></tbody></table></div></article>
+
+      <!-- =========================
+           หน้าสรุปงานค้าง
+           ========================= -->
+      <section
+        id="page-summary"
+        class="teacher-page"
+      >
+
+        <div
+          id="summaryStats"
+          class="stats-grid"
+        ></div>
+
+
+        <article class="panel">
+
+          <div class="panel-head">
+            <h2>สรุปรายบุคคล</h2>
+          </div>
+
+
+          <div class="table-wrap">
+
+            <table>
+
+              <thead>
+                <tr>
+                  <th>เลขที่</th>
+                  <th>ชื่อ-นามสกุล</th>
+                  <th>ชั้น</th>
+                  <th>งานทั้งหมด</th>
+                  <th>ส่งแล้ว</th>
+                  <th>ค้าง</th>
+                  <th>ไม่ส่ง</th>
+                  <th>ความคืบหน้า</th>
+                </tr>
+              </thead>
+
+              <tbody id="summaryTableBody"></tbody>
+
+            </table>
+
+          </div>
+
+        </article>
+
       </section>
+
     </main>
   </section>
 
-  <section id="studentView" class="student-view hidden">
+
+  <!-- =========================
+       ระบบฝั่งนักเรียน
+       ========================= -->
+  <section
+    id="studentView"
+    class="student-view hidden"
+  >
+
     <div class="student-shell">
-      <header class="student-hero"><div><h1>我的作业 · งานของฉัน</h1><p>ตรวจสอบสถานะงานแบบอ่านอย่างเดียว</p></div><div class="student-profile"><span>🐼</span><div><b id="studentName"></b><small id="studentMeta"></small></div><button id="studentLogout" class="btn ghost small">ออก</button></div></header>
-      <div class="readonly">🔒 นักเรียนสามารถตรวจสอบข้อมูลได้เท่านั้น ไม่สามารถแก้ไขสถานะงาน</div>
-      <article class="panel"><div class="panel-head"><div><h2>รายวิชาของฉัน</h2><p>ข้อมูลอ่านจาก Google Sheet</p></div><select id="studentCourseSelect" class="input"></select></div><div id="studentStats" class="stats-grid"></div><div class="table-wrap"><table><thead><tr><th>ชื่องาน</th><th>วันที่สั่ง</th><th>กำหนดส่ง</th><th>สถานะ</th></tr></thead><tbody id="studentWorkBody"></tbody></table></div></article>
+
+      <header class="student-hero">
+
+        <div>
+          <h1>我的作业 · งานของฉัน</h1>
+          <p>ตรวจสอบสถานะงานแบบอ่านอย่างเดียว</p>
+        </div>
+
+
+        <div class="student-profile">
+
+          <span>🐼</span>
+
+          <div>
+            <b id="studentName"></b>
+            <small id="studentMeta"></small>
+          </div>
+
+          <button
+            id="studentLogout"
+            class="btn ghost small"
+          >
+            ออก
+          </button>
+
+        </div>
+
+      </header>
+
+
+      <div class="readonly">
+        🔒 นักเรียนสามารถตรวจสอบข้อมูลได้เท่านั้น
+        ไม่สามารถแก้ไขสถานะงาน
+      </div>
+
+
+      <article class="panel">
+
+        <div class="panel-head">
+
+          <div>
+            <h2>รายวิชาของฉัน</h2>
+            <p>ข้อมูลอ่านจาก Google Sheet</p>
+          </div>
+
+          <select
+            id="studentCourseSelect"
+            class="input"
+          ></select>
+
+        </div>
+
+
+        <div
+          id="studentStats"
+          class="stats-grid"
+        ></div>
+
+
+        <div class="table-wrap">
+
+          <table>
+
+            <thead>
+              <tr>
+                <th>ชื่องาน</th>
+                <th>วันที่สั่ง</th>
+                <th>กำหนดส่ง</th>
+                <th>สถานะ</th>
+              </tr>
+            </thead>
+
+            <tbody id="studentWorkBody"></tbody>
+
+          </table>
+
+        </div>
+
+      </article>
+
     </div>
   </section>
 
-  <dialog id="assignmentDialog"><form id="assignmentForm" class="dialog-form"><div class="dialog-head"><h2 id="assignmentDialogTitle">เพิ่มงานใหม่</h2><button type="button" class="icon-btn" data-close-dialog="assignmentDialog">×</button></div><input type="hidden" id="editAssignmentId"><label>ชื่องาน<input id="assignmentTitle" class="input" required></label><div class="form-grid"><label>วันที่สั่ง<input id="assignedDate" class="input" type="date" required></label><label>กำหนดส่ง<input id="dueDate" class="input" type="date" required></label></div><label>หมายเหตุ<input id="assignmentNote" class="input"></label><div class="dialog-actions"><button type="button" class="btn ghost" data-close-dialog="assignmentDialog">ยกเลิก</button><button type="submit" class="btn primary">บันทึก</button></div></form></dialog>
 
-  <dialog id="rosterDialog" class="wide-dialog"><div class="dialog-form"><div class="dialog-head"><div><h2 id="rosterTitle">ตรวจสถานะงาน</h2><p id="rosterMeta"></p></div><button type="button" class="icon-btn" data-close-dialog="rosterDialog">×</button></div><div class="filters"><input id="rosterSearch" class="input" placeholder="ค้นหาชื่อหรือเลขประจำตัว"></div><div class="table-wrap roster-wrap"><table><thead><tr><th>เลขที่</th><th>เลขประจำตัว</th><th>ชื่อ-นามสกุล</th><th>สถานะ</th></tr></thead><tbody id="rosterBody"></tbody></table></div></div></dialog>
+  <!-- =========================
+       หน้าต่างเพิ่มและแก้ไขงาน
+       ========================= -->
+  <dialog id="assignmentDialog">
+
+    <form
+      id="assignmentForm"
+      class="dialog-form"
+    >
+
+      <div class="dialog-head">
+
+        <h2 id="assignmentDialogTitle">
+          เพิ่มงานใหม่
+        </h2>
+
+        <button
+          type="button"
+          class="icon-btn"
+          data-close-dialog="assignmentDialog"
+        >
+          ×
+        </button>
+
+      </div>
+
+
+      <input
+        type="hidden"
+        id="editAssignmentId"
+      >
+
+
+      <label for="assignmentTitle">
+
+        ชื่องาน
+
+        <input
+          id="assignmentTitle"
+          class="input"
+          required
+        >
+
+      </label>
+
+
+      <div class="form-grid">
+
+        <!-- วันที่สั่ง รูปแบบ วัน/เดือน/ปี -->
+        <label for="assignedDate">
+
+          วันที่สั่ง
+
+          <input
+            id="assignedDate"
+            class="input"
+            type="text"
+            inputmode="numeric"
+            maxlength="10"
+            autocomplete="off"
+            placeholder="วว/ดด/ปปปป"
+            aria-label="วันที่สั่ง รูปแบบวันเดือนปี"
+            required
+          >
+
+        </label>
+
+
+        <!-- กำหนดส่ง รูปแบบ วัน/เดือน/ปี -->
+        <label for="dueDate">
+
+          กำหนดส่ง
+
+          <input
+            id="dueDate"
+            class="input"
+            type="text"
+            inputmode="numeric"
+            maxlength="10"
+            autocomplete="off"
+            placeholder="วว/ดด/ปปปป"
+            aria-label="กำหนดส่ง รูปแบบวันเดือนปี"
+            required
+          >
+
+        </label>
+
+      </div>
+
+
+      <label for="assignmentNote">
+
+        หมายเหตุ
+
+        <input
+          id="assignmentNote"
+          class="input"
+        >
+
+      </label>
+
+
+      <div class="dialog-actions">
+
+        <button
+          type="button"
+          class="btn ghost"
+          data-close-dialog="assignmentDialog"
+        >
+          ยกเลิก
+        </button>
+
+        <button
+          type="submit"
+          class="btn primary"
+        >
+          บันทึก
+        </button>
+
+      </div>
+
+    </form>
+
+  </dialog>
+
+
+  <!-- =========================
+       หน้าต่างตรวจรายชื่อนักเรียน
+       ========================= -->
+  <dialog
+    id="rosterDialog"
+    class="wide-dialog"
+  >
+
+    <div class="dialog-form">
+
+      <div class="dialog-head">
+
+        <div>
+          <h2 id="rosterTitle">
+            ตรวจสถานะงาน
+          </h2>
+
+          <p id="rosterMeta"></p>
+        </div>
+
+        <button
+          type="button"
+          class="icon-btn"
+          data-close-dialog="rosterDialog"
+        >
+          ×
+        </button>
+
+      </div>
+
+
+      <div class="filters">
+
+        <input
+          id="rosterSearch"
+          class="input"
+          placeholder="ค้นหาชื่อหรือเลขประจำตัว"
+        >
+
+      </div>
+
+
+      <div class="table-wrap roster-wrap">
+
+        <table>
+
+          <thead>
+            <tr>
+              <th>เลขที่</th>
+              <th>เลขประจำตัว</th>
+              <th>ชื่อ-นามสกุล</th>
+              <th>สถานะ</th>
+            </tr>
+          </thead>
+
+          <tbody id="rosterBody"></tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+
+  </dialog>
+
 </body>
 </html>

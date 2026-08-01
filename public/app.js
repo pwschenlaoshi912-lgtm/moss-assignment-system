@@ -235,24 +235,108 @@ async function scanStudent(rawValue) {
   const studentId = cleanStudentId(rawValue);
   const assignmentId = $("#scanAssignmentSelect").value;
   const input = $("#scannerInput");
-  if (!assignmentId) return showScanMessage("กรุณาเพิ่มหรือเลือกงานก่อนเริ่มสแกน", true);
-  if (!studentId) return;
+
+  if (!assignmentId) {
+    showScanMessage(
+      "กรุณาเพิ่มหรือเลือกงานก่อนเริ่มสแกน",
+      true
+    );
+    return;
+  }
+
+  if (!studentId) {
+    return;
+  }
+
+  // ป้องกันการสแกนซ้ำขณะกำลังบันทึก
+  if (input.dataset.busy === "1") {
+    return;
+  }
+
+  input.dataset.busy = "1";
+
+  // ล้างช่องทันทีเพื่อเตรียมสแกนคนต่อไป
+  input.value = "";
+
+  showScanMessage(
+    `กำลังบันทึกเลขประจำตัว ${studentId}...`,
+    false
+  );
+
   try {
-    const result = await api("scanSubmission", { token: state.teacherToken, assignmentId, studentId });
-    state.localScans.unshift({ name: result.student.fullName, studentId: result.student.studentId, assignment: result.assignment.title, time: new Date().toLocaleTimeString("th-TH") });
-    state.localScans = state.localScans.slice(0, 20);
-    showScanMessage(`✓ บันทึก ${result.student.fullName} ส่งงานแล้ว`, false);
-    input.value = "";
-    await loadTeacherData();
+    const result = await api("scanSubmission", {
+      token: state.teacherToken,
+      assignmentId,
+      studentId
+    });
+
+    // อัปเดตข้อมูลในหน้าเว็บทันที
+    // ไม่ต้องโหลดข้อมูลทั้งวิชาใหม่
+    const recordKey =
+      `${result.assignment.assignmentId}|${result.student.studentId}`;
+
+    state.teacherData.records[recordKey] = {
+      status: "submitted",
+      submittedAt:
+        result.record?.submittedAt ||
+        new Date().toISOString(),
+      updatedAt:
+        result.record?.updatedAt ||
+        new Date().toISOString(),
+      note: ""
+    };
+
+    // เพิ่มประวัติการสแกน
+    state.localScans.unshift({
+      name: result.student.fullName,
+      studentId: result.student.studentId,
+      assignment: result.assignment.title,
+      time: new Date().toLocaleTimeString(
+        "th-TH",
+        {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit"
+        }
+      )
+    });
+
+    state.localScans = state.localScans.slice(0, 30);
+
+    showScanMessage(
+      `✓ บันทึก ${result.student.fullName} ส่งงานแล้ว`,
+      false
+    );
+
+    // อัปเดตเฉพาะส่วนที่จำเป็น
     renderLocalScans();
+    renderDashboard();
+    renderAssignments();
+    renderStudents();
+    renderSummary();
+
+    if (
+      $("#rosterDialog").open &&
+      state.rosterAssignmentId ===
+        result.assignment.assignmentId
+    ) {
+      renderRoster();
+    }
+
   } catch (error) {
-    showScanMessage(error.message, true);
-    input.value = "";
+    showScanMessage(
+      error.message || "บันทึกข้อมูลไม่สำเร็จ",
+      true
+    );
+
   } finally {
-    setTimeout(() => input.focus(), 50);
+    input.dataset.busy = "0";
+
+    setTimeout(() => {
+      input.focus();
+    }, 30);
   }
 }
-
 function showScanMessage(text, isError) {
   const message = $("#scanMessage");
   message.textContent = text;

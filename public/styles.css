@@ -364,3 +364,72 @@ dialog{border:0;border-radius:21px;padding:0;width:min(570px,94vw);box-shadow:0 
   color:#967d6f;
   font-weight:600;
 }
+/* ===== รักษาสีบัตรให้เหมือนหน้าเว็บตอนสั่งพิมพ์ ===== */
+
+@media print {
+
+  html,
+  body,
+  #page-cards,
+  #idCardGrid,
+  .id-card-grid,
+  .id-card,
+  .id-card *,
+  .id-card::before,
+  .id-card::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  .id-card {
+    background:
+      radial-gradient(
+        circle at 94% 10%,
+        rgba(232, 180, 79, 0.22),
+        transparent 25%
+      ),
+      linear-gradient(
+        135deg,
+        #fffefa,
+        #fff4e7
+      ) !important;
+
+    border: 2px solid #8e2632 !important;
+    color: #40353a !important;
+  }
+
+  .mini-seal {
+    background-color: #8e2632 !important;
+    color: #ffffff !important;
+  }
+
+  .id-head {
+    border-bottom-color: #ead5c7 !important;
+  }
+
+  .id-head b {
+    color: #8e2632 !important;
+  }
+
+  .id-head small {
+    color: #89787c !important;
+  }
+
+  .id-info h3 {
+    color: #2f2a2d !important;
+  }
+
+  .id-info p,
+  .id-info p b {
+    color: #55494d !important;
+  }
+
+  .id-card::after {
+    color: rgba(200, 63, 72, 0.06) !important;
+  }
+
+  .qr-box {
+    background-color: #ffffff !important;
+  }
+}

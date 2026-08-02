@@ -13,90 +13,16 @@ const state = {
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
-
-// ==========================================
-// ระบบโหลดข้อมูลแบบเสถียรและข้อมูลสำรอง
-// ==========================================
-const READ_ONLY_ACTIONS = new Set([
-  "health",
-  "publicBootstrap",
-  "teacherBootstrap",
-  "studentSummary"
-]);
-
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function writeCache(key, data) {
-  try {
-    localStorage.setItem(
-      key,
-      JSON.stringify({
-        savedAt: Date.now(),
-        data
-      })
-    );
-  } catch (error) {
-    console.warn("บันทึกข้อมูลสำรองไม่ได้", error);
-  }
-}
-
-function readCache(key, maxAgeMs = 24 * 60 * 60 * 1000) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw);
-    if (!parsed || !parsed.data) return null;
-
-    const age = Date.now() - Number(parsed.savedAt || 0);
-    if (age > maxAgeMs) return null;
-
-    return parsed.data;
-  } catch (error) {
-    console.warn("อ่านข้อมูลสำรองไม่ได้", error);
-    return null;
-  }
-}
-
-function teacherCacheKey(courseCode) {
-  return `mossTeacherData:${courseCode || "default"}`;
-}
-
-function saveCurrentTeacherData() {
-  const courseCode = state.teacherData?.course?.courseCode;
-  if (!courseCode) return;
-  writeCache(teacherCacheKey(courseCode), state.teacherData);
-}
-
 document.addEventListener("DOMContentLoaded", init);
 
 async function init() {
   bindEvents();
-
-  const cacheKey = "mossPublicBootstrap";
-  const cachedData = readCache(cacheKey, 7 * 24 * 60 * 60 * 1000);
-
-  // แสดงชื่อระบบจากข้อมูลเดิมก่อน เพื่อลดหน้าว่างระหว่างรอเครือข่าย
-  if (cachedData) {
-    state.bootstrap = cachedData;
-    applySystemNames();
-  }
-
   try {
-    setLoading(!cachedData);
-
-    const freshData = await api("publicBootstrap");
-    state.bootstrap = freshData;
-    writeCache(cacheKey, freshData);
+    setLoading(true);
+    state.bootstrap = await api("publicBootstrap");
     applySystemNames();
   } catch (error) {
-    if (cachedData) {
-      toast("เชื่อมต่อชั่วคราวไม่ได้ กำลังใช้ข้อมูลล่าสุดที่บันทึกไว้", true);
-    } else {
-      toast(error.message || "โหลดข้อมูลเริ่มต้นไม่สำเร็จ", true);
-    }
+    toast(error.message, true);
   } finally {
     setLoading(false);
   }
@@ -107,104 +33,88 @@ function bindEvents() {
   $("#studentLoginForm").addEventListener("submit", studentLogin);
   $("#teacherLogout").addEventListener("click", logout);
   $("#studentLogout").addEventListener("click", logout);
+
   $("#teacherCourseSelect").addEventListener("change", async (event) => {
     state.teacherCourse = event.target.value;
     localStorage.setItem("mossTeacherCourse", state.teacherCourse);
     await loadTeacherData();
   });
+
   $("#teacherNav").addEventListener("click", (event) => {
     const button = event.target.closest("[data-page]");
     if (button) showTeacherPage(button.dataset.page);
   });
-  $$('[data-go]').forEach((button) => button.addEventListener("click", () => showTeacherPage(button.dataset.go)));
-  $$('[data-open-assignment]').forEach((button) => button.addEventListener("click", () => openAssignmentDialog()));
-  $$('[data-close-dialog]').forEach((button) => button.addEventListener("click", () => $("#" + button.dataset.closeDialog).close()));
+
+  $$("[data-go]").forEach((button) => {
+    button.addEventListener("click", () => showTeacherPage(button.dataset.go));
+  });
+
+  $$("[data-open-assignment]").forEach((button) => {
+    button.addEventListener("click", () => openAssignmentDialog());
+  });
+
+  $$("[data-close-dialog]").forEach((button) => {
+    button.addEventListener("click", () => {
+      $("#" + button.dataset.closeDialog).close();
+    });
+  });
+
   $("#assignmentForm").addEventListener("submit", saveAssignment);
+
   $("#scannerInput").addEventListener("keydown", async (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
       await scanStudent(event.target.value);
     }
   });
+
   $("#clearLocalScans").addEventListener("click", () => {
     state.localScans = [];
     renderLocalScans();
   });
+
   $("#studentSearch").addEventListener("input", renderStudents);
   $("#studentClassFilter").addEventListener("change", renderStudents);
   $("#cardClassFilter").addEventListener("change", renderCards);
   $("#printCards").addEventListener("click", () => window.print());
   $("#reloadData").addEventListener("click", loadTeacherData);
+
   $("#studentCourseSelect").addEventListener("change", (event) => {
     state.studentCourseIndex = Number(event.target.value);
     renderStudentPortal();
   });
+
   $("#rosterSearch").addEventListener("input", renderRoster);
+
+  const markAllButton = $("#markAllSubmitted");
+  if (markAllButton) {
+    markAllButton.addEventListener("click", markAllSubmitted);
+  }
+
+  const downloadCardButton = $("#downloadStudentCard");
+  if (downloadCardButton) {
+    downloadCardButton.addEventListener("click", downloadStudentCard);
+  }
+
+  ["#assignedDate", "#dueDate"].forEach((selector) => {
+    const input = $(selector);
+    if (input) input.addEventListener("input", formatDateInput);
+  });
 }
 
 async function api(action, data = {}) {
-  const retryable = READ_ONLY_ACTIONS.has(action);
-  const maxAttempts = retryable ? 3 : 1;
-  let lastError = null;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 18000);
-
-    try {
-      const response = await fetch("/api", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action, data }),
-        signal: controller.signal,
-        cache: "no-store"
-      });
-
-      const responseText = await response.text();
-      let payload;
-
-      try {
-        payload = JSON.parse(responseText);
-      } catch {
-        throw new Error("ระบบตอบกลับไม่ถูกต้อง");
-      }
-
-      if (!payload?.ok) {
-        const error = new Error(
-          payload?.error?.message || "เชื่อมต่อระบบไม่สำเร็จ"
-        );
-        error.code = payload?.error?.code || "API_ERROR";
-        throw error;
-      }
-
-      return payload.data;
-    } catch (error) {
-      lastError = error.name === "AbortError"
-        ? new Error("ระบบใช้เวลาตอบกลับนานเกินไป")
-        : error;
-
-      if (error.code) lastError.code = error.code;
-
-      const doNotRetry = [
-        "INVALID_PIN",
-        "PIN_REQUIRED",
-        "INVALID_SESSION",
-        "SESSION_EXPIRED",
-        "STUDENT_NOT_FOUND",
-        "COURSE_NOT_FOUND"
-      ].includes(lastError.code);
-
-      if (doNotRetry || attempt >= maxAttempts) {
-        throw lastError;
-      }
-
-      await wait(700 * attempt);
-    } finally {
-      clearTimeout(timeoutId);
-    }
+  const response = await fetch("/api", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ action, data })
+  });
+  const payload = await response.json().catch(() => null);
+  if (!payload || !payload.ok) {
+    const error = new Error(payload?.error?.message || "เชื่อมต่อระบบไม่สำเร็จ");
+    error.code = payload?.error?.code || "API_ERROR";
+    throw error;
   }
-
-  throw lastError || new Error("เชื่อมต่อระบบไม่ได้");
+  return payload.data;
 }
 
 async function teacherLogin(event) {
@@ -261,52 +171,19 @@ function logout() {
 }
 
 async function loadTeacherData() {
-  const requestedCourse = state.teacherCourse;
-  const cacheKey = teacherCacheKey(requestedCourse);
-
-  const memoryData =
-    state.teacherData?.course?.courseCode === requestedCourse
-      ? state.teacherData
-      : null;
-
-  const cachedData = readCache(cacheKey);
-  const fallbackData = memoryData || cachedData;
-
-  // แสดงข้อมูลล่าสุดก่อน ไม่ปล่อยให้หน้าเว็บว่างขณะรอ Google Sheet
-  if (fallbackData) {
-    state.teacherData = fallbackData;
-    populateTeacherCourses();
-    renderTeacher();
-  }
-
   try {
-    setLoading(!fallbackData);
-
-    const freshData = await api("teacherBootstrap", {
+    setLoading(true);
+    state.teacherData = await api("teacherBootstrap", {
       token: state.teacherToken,
-      courseCode: requestedCourse
+      courseCode: state.teacherCourse
     });
-
-    state.teacherData = freshData;
-    state.teacherCourse = freshData.course.courseCode;
+    state.teacherCourse = state.teacherData.course.courseCode;
     localStorage.setItem("mossTeacherCourse", state.teacherCourse);
-
-    writeCache(teacherCacheKey(state.teacherCourse), freshData);
-
     populateTeacherCourses();
     renderTeacher();
   } catch (error) {
-    if (["INVALID_SESSION", "SESSION_EXPIRED"].includes(error.code)) {
-      logout();
-      toast("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่", true);
-      return;
-    }
-
-    if (fallbackData) {
-      toast("อัปเดตข้อมูลใหม่ไม่ได้ กำลังแสดงข้อมูลล่าสุดที่บันทึกไว้", true);
-    } else {
-      toast(error.message || "โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่", true);
-    }
+    if (["INVALID_SESSION", "SESSION_EXPIRED"].includes(error.code)) logout();
+    toast(error.message, true);
   } finally {
     setLoading(false);
   }
@@ -471,7 +348,6 @@ async function scanStudent(rawValue) {
     renderAssignments();
     renderStudents();
     renderSummary();
-    saveCurrentTeacherData();
 
     if (
       $("#rosterDialog").open &&
@@ -519,33 +395,67 @@ function renderAssignments() {
 }
 
 function openAssignmentDialog(assignmentId = "") {
-  const assignment = state.teacherData?.assignments.find((item) => item.assignmentId === assignmentId);
+  const assignment = state.teacherData?.assignments.find(
+    (item) => item.assignmentId === assignmentId
+  );
+
   $("#editAssignmentId").value = assignmentId;
-  $("#assignmentDialogTitle").textContent = assignment ? "แก้ไขงาน" : "เพิ่มงานใหม่";
+  $("#assignmentDialogTitle").textContent =
+    assignment ? "แก้ไขงาน" : "เพิ่มงานใหม่";
   $("#assignmentTitle").value = assignment?.title || "";
   $("#assignmentNote").value = assignment?.note || "";
+
   const today = new Date().toISOString().slice(0, 10);
-  $("#assignedDate").value = assignment?.assignedDate || today;
-  $("#dueDate").value = assignment?.dueDate || today;
+
+  $("#assignedDate").value = isoToDisplayDate(
+    assignment?.assignedDate || today
+  );
+
+  $("#dueDate").value = isoToDisplayDate(
+    assignment?.dueDate || today
+  );
+
   $("#assignmentDialog").showModal();
 }
 
 async function saveAssignment(event) {
   event.preventDefault();
+
   const assignmentId = $("#editAssignmentId").value;
+  const assignedDate = displayDateToIso($("#assignedDate").value);
+  const dueDate = displayDateToIso($("#dueDate").value);
+
+  if (!assignedDate || !dueDate) {
+    toast(
+      "กรุณากรอกวันที่เป็น วัน/เดือน/ปี เช่น 01/08/2569",
+      true
+    );
+    return;
+  }
+
   try {
     setLoading(true);
-    await api(assignmentId ? "updateAssignment" : "addAssignment", {
-      token: state.teacherToken,
-      assignmentId,
-      courseCode: state.teacherCourse,
-      title: $("#assignmentTitle").value.trim(),
-      assignedDate: $("#assignedDate").value,
-      dueDate: $("#dueDate").value,
-      note: $("#assignmentNote").value.trim()
-    });
+
+    await api(
+      assignmentId ? "updateAssignment" : "addAssignment",
+      {
+        token: state.teacherToken,
+        assignmentId,
+        courseCode: state.teacherCourse,
+        title: $("#assignmentTitle").value.trim(),
+        assignedDate,
+        dueDate,
+        note: $("#assignmentNote").value.trim()
+      }
+    );
+
     $("#assignmentDialog").close();
-    toast(assignmentId ? "แก้ไขงานเรียบร้อย" : "เพิ่มงานเรียบร้อย");
+    toast(
+      assignmentId
+        ? "แก้ไขงานเรียบร้อย"
+        : "เพิ่มงานเรียบร้อย"
+    );
+
     await loadTeacherData();
   } catch (error) {
     toast(error.message, true);
@@ -746,6 +656,17 @@ function renderRoster() {
     `ส่งแล้ว ${submittedCount} คน · ` +
     `งานค้าง ${pendingCount} คน · ` +
     `ไม่ส่ง ${missingCount} คน`;
+
+  const remainingCount = pendingCount + missingCount;
+  const markAllButton = $("#markAllSubmitted");
+
+  if (markAllButton) {
+    markAllButton.disabled = remainingCount === 0;
+    markAllButton.textContent =
+      remainingCount === 0
+        ? "✓ ส่งครบแล้ว"
+        : `✓ ส่งทั้งหมด (${remainingCount} คน)`;
+  }
 
 
   // ค้นหานักเรียน
@@ -982,7 +903,6 @@ async function changeStatus(
     renderAssignments();
     renderStudents();
     renderSummary();
-    saveCurrentTeacherData();
 
 
     const statusMeta =
@@ -1009,24 +929,463 @@ async function changeStatus(
   }
 }
 
+// บันทึกนักเรียนทุกคนเป็นส่งแล้วในครั้งเดียว
+async function markAllSubmitted() {
+  const assignmentId = state.rosterAssignmentId;
+
+  const assignment = state.teacherData?.assignments.find(
+    (item) => item.assignmentId === assignmentId
+  );
+
+  if (!assignment) {
+    toast("ไม่พบงานที่เลือก", true);
+    return;
+  }
+
+  const remainingStudents = state.teacherData.students.filter(
+    (student) =>
+      getStatus(assignmentId, student.studentId) !== "submitted"
+  );
+
+  if (!remainingStudents.length) {
+    toast("นักเรียนส่งงานครบแล้ว");
+    return;
+  }
+
+  const confirmed = confirm(
+    `ต้องการเปลี่ยนนักเรียนที่ยังไม่ส่งจำนวน ` +
+    `${remainingStudents.length} คน เป็น “ส่งแล้ว” หรือไม่?\n\n` +
+    `งาน: ${assignment.title}`
+  );
+
+  if (!confirmed) return;
+
+  const button = $("#markAllSubmitted");
+  const oldText = button?.textContent || "✓ ส่งทั้งหมด";
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "กำลังบันทึก...";
+  }
+
+  try {
+    const result = await api("bulkSetSubmissionStatus", {
+      token: state.teacherToken,
+      assignmentId,
+      status: "submitted"
+    });
+
+    const now = new Date().toISOString();
+
+    state.teacherData.students.forEach((student) => {
+      const recordKey = `${assignmentId}|${student.studentId}`;
+      const oldRecord = state.teacherData.records[recordKey] || {};
+
+      state.teacherData.records[recordKey] = {
+        ...oldRecord,
+        status: "submitted",
+        submittedAt: oldRecord.submittedAt || now,
+        updatedAt: now
+      };
+    });
+
+    renderRoster();
+    renderDashboard();
+    renderAssignments();
+    renderStudents();
+    renderSummary();
+
+    toast(
+      `บันทึกส่งทั้งหมด ${result?.total || state.teacherData.students.length} คนแล้ว`
+    );
+  } catch (error) {
+    if (button) {
+      button.disabled = false;
+      button.textContent = oldText;
+    }
+
+    toast(
+      error.message || "บันทึกส่งทั้งหมดไม่สำเร็จ",
+      true
+    );
+  }
+}
+
+// แสดงบัตรประจำตัวนักเรียนส่วนตัวและสร้าง QR Code
+function renderStudentPersonalCard(student) {
+  const section = $("#studentIdCardSection");
+  const qrBox = $("#studentPersonalQr");
+
+  if (!section || !qrBox || !student) return;
+
+  $("#studentCardName").textContent = student.fullName || "-";
+  $("#studentCardId").textContent = student.studentId || "-";
+  $("#studentCardClass").textContent = student.className || "-";
+  $("#studentCardNumber").textContent = student.number || "-";
+
+  qrBox.innerHTML = "";
+
+  if (typeof QRCode === "undefined") {
+    qrBox.textContent = "โหลด QR ไม่สำเร็จ";
+    section.classList.remove("hidden");
+    return;
+  }
+
+  new QRCode(qrBox, {
+    text: String(student.studentId || ""),
+    width: 220,
+    height: 220,
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  section.classList.remove("hidden");
+}
+
+
+// ดาวน์โหลดบัตรนักเรียนเป็นไฟล์ PNG
+async function downloadStudentCard() {
+  const student = state.studentData?.student;
+
+  if (!student) {
+    toast("ไม่พบข้อมูลนักเรียน", true);
+    return;
+  }
+
+  const qrSource =
+    $("#studentPersonalQr canvas") ||
+    $("#studentPersonalQr img");
+
+  if (!qrSource) {
+    toast("QR Code ยังโหลดไม่เสร็จ กรุณาลองอีกครั้ง", true);
+    return;
+  }
+
+  const button = $("#downloadStudentCard");
+  const oldText = button?.textContent || "⬇️ ดาวน์โหลดบัตรนักเรียน";
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "กำลังสร้างบัตร...";
+  }
+
+  try {
+    const width = 1011;
+    const height = 638;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("เบราว์เซอร์ไม่รองรับการสร้างรูปบัตร");
+
+    // พื้นหลังและกรอบบัตร
+    ctx.save();
+    roundedRectPath(ctx, 6, 6, width - 12, height - 12, 38);
+    ctx.clip();
+
+    const background = ctx.createLinearGradient(0, 0, width, height);
+    background.addColorStop(0, "#fffefa");
+    background.addColorStop(1, "#fff2df");
+    ctx.fillStyle = background;
+    ctx.fillRect(0, 0, width, height);
+
+    const glow = ctx.createRadialGradient(
+      width * 0.9,
+      height * 0.12,
+      10,
+      width * 0.9,
+      height * 0.12,
+      300
+    );
+    glow.addColorStop(0, "rgba(232,180,79,0.24)");
+    glow.addColorStop(1, "rgba(232,180,79,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.fillStyle = "rgba(200,63,72,0.055)";
+    ctx.font = "260px serif";
+    ctx.fillText("中", 760, 650);
+
+    ctx.restore();
+
+    ctx.strokeStyle = "#8e2632";
+    ctx.lineWidth = 8;
+    roundedRectPath(ctx, 6, 6, width - 12, height - 12, 38);
+    ctx.stroke();
+
+    // ตราประทับ
+    ctx.fillStyle = "#8e2632";
+    roundedRectPath(ctx, 52, 42, 118, 118, 32);
+    ctx.fill();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = '900 66px "Noto Sans Thai", "Arial", sans-serif';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("陈", 111, 104);
+
+    // ชื่อระบบ
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#8e2632";
+    ctx.font = '800 38px "Noto Sans Thai", "Tahoma", sans-serif';
+    ctx.fillText("ระบบเช็กงานเหล่าซือมอส", 195, 90);
+
+    ctx.fillStyle = "#89787c";
+    ctx.font = '24px "Noto Sans SC", "Arial", sans-serif';
+    ctx.fillText("陈老师作业管理系统", 195, 132);
+
+    // เส้นแบ่ง
+    ctx.strokeStyle = "#ead5c7";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(52, 190);
+    ctx.lineTo(959, 190);
+    ctx.stroke();
+
+    // ชื่อนักเรียน
+    ctx.fillStyle = "#2f2a2d";
+    drawFittedText(
+      ctx,
+      String(student.fullName || "-"),
+      64,
+      285,
+      575,
+      43,
+      30,
+      '800 {size}px "Noto Sans Thai", "Tahoma", sans-serif'
+    );
+
+    // ข้อมูลนักเรียน
+    ctx.fillStyle = "#55494d";
+    ctx.font = '600 27px "Noto Sans Thai", "Tahoma", sans-serif';
+    ctx.fillText(`เลขประจำตัว: ${student.studentId || "-"}`, 64, 365);
+    ctx.fillText(`ชั้น/ห้อง: ${student.className || "-"}`, 64, 425);
+    ctx.fillText(`เลขที่: ${student.number || "-"}`, 64, 485);
+
+    ctx.fillStyle = "#8e2632";
+    ctx.font = '700 22px "Noto Sans Thai", "Tahoma", sans-serif';
+    ctx.fillText("ใช้ QR Code นี้สำหรับเช็กส่งงาน", 64, 555);
+
+    // กล่อง QR
+    ctx.fillStyle = "#ffffff";
+    roundedRectPath(ctx, 690, 230, 270, 270, 22);
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(142,38,50,0.10)";
+    ctx.lineWidth = 2;
+    roundedRectPath(ctx, 690, 230, 270, 270, 22);
+    ctx.stroke();
+
+    if (qrSource instanceof HTMLImageElement && !qrSource.complete) {
+      await new Promise((resolve, reject) => {
+        qrSource.onload = resolve;
+        qrSource.onerror = reject;
+      });
+    }
+
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(qrSource, 710, 250, 230, 230);
+
+    // ดาวน์โหลดไฟล์
+    const safeName = String(student.fullName || student.studentId || "student")
+      .replace(/[\\/:*?"<>|]+/g, "_")
+      .trim();
+
+    const link = document.createElement("a");
+    link.download = `บัตรส่งงาน_${safeName}.png`;
+    link.href = canvas.toDataURL("image/png");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    toast("ดาวน์โหลดบัตรนักเรียนเรียบร้อย");
+  } catch (error) {
+    toast(
+      error.message || "สร้างไฟล์บัตรไม่สำเร็จ",
+      true
+    );
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = oldText;
+    }
+  }
+}
+
+
+function roundedRectPath(ctx, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
+}
+
+
+function drawFittedText(
+  ctx,
+  text,
+  x,
+  y,
+  maxWidth,
+  startSize,
+  minSize,
+  fontTemplate
+) {
+  let size = startSize;
+
+  while (size > minSize) {
+    ctx.font = fontTemplate.replace("{size}", size);
+    if (ctx.measureText(text).width <= maxWidth) break;
+    size -= 1;
+  }
+
+  ctx.fillText(text, x, y);
+}
+
+
+// แปลง YYYY-MM-DD เป็น DD/MM/YYYY
+function isoToDisplayDate(value) {
+  const match = String(value || "").match(
+    /^(\d{4})-(\d{2})-(\d{2})$/
+  );
+
+  if (!match) return "";
+
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+
+// แปลง DD/MM/YYYY เป็น YYYY-MM-DD
+function displayDateToIso(value) {
+  const match = String(value || "")
+    .trim()
+    .match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
+  if (!match) return "";
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  let year = Number(match[3]);
+
+  if (year > 2400) {
+    year -= 543;
+  }
+
+  const checkedDate = new Date(year, month - 1, day);
+
+  if (
+    checkedDate.getFullYear() !== year ||
+    checkedDate.getMonth() !== month - 1 ||
+    checkedDate.getDate() !== day
+  ) {
+    return "";
+  }
+
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+
+// เติมเครื่องหมาย / ขณะพิมพ์วันที่
+function formatDateInput(event) {
+  const digits = event.target.value
+    .replace(/\D/g, "")
+    .slice(0, 8);
+
+  let formatted = digits.slice(0, 2);
+
+  if (digits.length > 2) {
+    formatted += "/" + digits.slice(2, 4);
+  }
+
+  if (digits.length > 4) {
+    formatted += "/" + digits.slice(4, 8);
+  }
+
+  event.target.value = formatted;
+}
+
 function renderStudentPortal() {
   const data = state.studentData;
   if (!data) return;
+
   $("#studentName").textContent = data.student.fullName;
-  $("#studentMeta").textContent = `${data.student.className} · เลขที่ ${data.student.number} · ${data.student.studentId}`;
-  $("#studentCourseSelect").innerHTML = data.courseWorks.map((work, index) => `<option value="${index}">${escapeHtml(work.course.courseCode)} ${escapeHtml(work.course.courseNameTH)}</option>`).join("");
+  $("#studentMeta").textContent =
+    `${data.student.className} · เลขที่ ${data.student.number} · ${data.student.studentId}`;
+
+  renderStudentPersonalCard(data.student);
+
+  $("#studentCourseSelect").innerHTML = data.courseWorks
+    .map(
+      (work, index) =>
+        `<option value="${index}">` +
+        `${escapeHtml(work.course.courseCode)} ` +
+        `${escapeHtml(work.course.courseNameTH)}` +
+        `</option>`
+    )
+    .join("");
+
   $("#studentCourseSelect").value = String(state.studentCourseIndex);
+
   const work = data.courseWorks[state.studentCourseIndex];
+
   if (!work) {
     $("#studentStats").innerHTML = "";
-    $("#studentWorkBody").innerHTML = `<tr><td colspan="4" class="empty">ไม่พบรายวิชาของนักเรียน</td></tr>`;
+    $("#studentWorkBody").innerHTML =
+      `<tr><td colspan="4" class="empty">` +
+      `ไม่พบรายวิชาของนักเรียน` +
+      `</td></tr>`;
     return;
   }
-  const submitted = work.assignments.filter((a) => a.status === "submitted").length;
-  const missing = work.assignments.filter((a) => a.status === "missing").length;
-  const pending = work.assignments.length - submitted - missing;
-  $("#studentStats").innerHTML = [statCard("งานทั้งหมด", work.assignments.length, work.course.courseCode), statCard("ส่งแล้ว", submitted, "งาน"), statCard("งานค้าง", pending, "งาน"), statCard("ไม่ส่ง", missing, "งาน")].join("");
-  $("#studentWorkBody").innerHTML = work.assignments.length ? work.assignments.map((assignment) => `<tr><td><b>${escapeHtml(assignment.title)}</b>${assignment.note ? `<br><small>${escapeHtml(assignment.note)}</small>` : ""}</td><td>${formatDate(assignment.assignedDate)}</td><td>${formatDate(assignment.dueDate)}</td><td>${statusBadge(assignment.status)}</td></tr>`).join("") : `<tr><td colspan="4" class="empty">ยังไม่มีงานในรายวิชานี้</td></tr>`;
+
+  const submitted = work.assignments.filter(
+    (assignment) => assignment.status === "submitted"
+  ).length;
+
+  const missing = work.assignments.filter(
+    (assignment) => assignment.status === "missing"
+  ).length;
+
+  const pending =
+    work.assignments.length - submitted - missing;
+
+  $("#studentStats").innerHTML = [
+    statCard(
+      "งานทั้งหมด",
+      work.assignments.length,
+      work.course.courseCode
+    ),
+    statCard("ส่งแล้ว", submitted, "งาน"),
+    statCard("งานค้าง", pending, "งาน"),
+    statCard("ไม่ส่ง", missing, "งาน")
+  ].join("");
+
+  $("#studentWorkBody").innerHTML =
+    work.assignments.length
+      ? work.assignments
+          .map(
+            (assignment) =>
+              `<tr>` +
+              `<td><b>${escapeHtml(assignment.title)}</b>` +
+              `${
+                assignment.note
+                  ? `<br><small>${escapeHtml(assignment.note)}</small>`
+                  : ""
+              }</td>` +
+              `<td>${formatDate(assignment.assignedDate)}</td>` +
+              `<td>${formatDate(assignment.dueDate)}</td>` +
+              `<td>${statusBadge(assignment.status)}</td>` +
+              `</tr>`
+          )
+          .join("")
+      : `<tr><td colspan="4" class="empty">` +
+        `ยังไม่มีงานในรายวิชานี้` +
+        `</td></tr>`;
 }
 
 function getCourseStats() {

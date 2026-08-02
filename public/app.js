@@ -13,16 +13,90 @@ const state = {
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
+
+// ==========================================
+// ระบบโหลดข้อมูลแบบเสถียรและข้อมูลสำรอง
+// ==========================================
+const READ_ONLY_ACTIONS = new Set([
+  "health",
+  "publicBootstrap",
+  "teacherBootstrap",
+  "studentSummary"
+]);
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function writeCache(key, data) {
+  try {
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        savedAt: Date.now(),
+        data
+      })
+    );
+  } catch (error) {
+    console.warn("บันทึกข้อมูลสำรองไม่ได้", error);
+  }
+}
+
+function readCache(key, maxAgeMs = 24 * 60 * 60 * 1000) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.data) return null;
+
+    const age = Date.now() - Number(parsed.savedAt || 0);
+    if (age > maxAgeMs) return null;
+
+    return parsed.data;
+  } catch (error) {
+    console.warn("อ่านข้อมูลสำรองไม่ได้", error);
+    return null;
+  }
+}
+
+function teacherCacheKey(courseCode) {
+  return `mossTeacherData:${courseCode || "default"}`;
+}
+
+function saveCurrentTeacherData() {
+  const courseCode = state.teacherData?.course?.courseCode;
+  if (!courseCode) return;
+  writeCache(teacherCacheKey(courseCode), state.teacherData);
+}
+
 document.addEventListener("DOMContentLoaded", init);
 
 async function init() {
   bindEvents();
+
+  const cacheKey = "mossPublicBootstrap";
+  const cachedData = readCache(cacheKey, 7 * 24 * 60 * 60 * 1000);
+
+  // แสดงชื่อระบบจากข้อมูลเดิมก่อน เพื่อลดหน้าว่างระหว่างรอเครือข่าย
+  if (cachedData) {
+    state.bootstrap = cachedData;
+    applySystemNames();
+  }
+
   try {
-    setLoading(true);
-    state.bootstrap = await api("publicBootstrap");
+    setLoading(!cachedData);
+
+    const freshData = await api("publicBootstrap");
+    state.bootstrap = freshData;
+    writeCache(cacheKey, freshData);
     applySystemNames();
   } catch (error) {
-    toast(error.message, true);
+    if (cachedData) {
+      toast("เชื่อมต่อชั่วคราวไม่ได้ กำลังใช้ข้อมูลล่าสุดที่บันทึกไว้", true);
+    } else {
+      toast(error.message || "โหลดข้อมูลเริ่มต้นไม่สำเร็จ", true);
+    }
   } finally {
     setLoading(false);
   }
@@ -69,18 +143,68 @@ function bindEvents() {
 }
 
 async function api(action, data = {}) {
-  const response = await fetch("/api", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ action, data })
-  });
-  const payload = await response.json().catch(() => null);
-  if (!payload || !payload.ok) {
-    const error = new Error(payload?.error?.message || "เชื่อมต่อระบบไม่สำเร็จ");
-    error.code = payload?.error?.code || "API_ERROR";
-    throw error;
+  const retryable = READ_ONLY_ACTIONS.has(action);
+  const maxAttempts = retryable ? 3 : 1;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 18000);
+
+    try {
+      const response = await fetch("/api", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action, data }),
+        signal: controller.signal,
+        cache: "no-store"
+      });
+
+      const responseText = await response.text();
+      let payload;
+
+      try {
+        payload = JSON.parse(responseText);
+      } catch {
+        throw new Error("ระบบตอบกลับไม่ถูกต้อง");
+      }
+
+      if (!payload?.ok) {
+        const error = new Error(
+          payload?.error?.message || "เชื่อมต่อระบบไม่สำเร็จ"
+        );
+        error.code = payload?.error?.code || "API_ERROR";
+        throw error;
+      }
+
+      return payload.data;
+    } catch (error) {
+      lastError = error.name === "AbortError"
+        ? new Error("ระบบใช้เวลาตอบกลับนานเกินไป")
+        : error;
+
+      if (error.code) lastError.code = error.code;
+
+      const doNotRetry = [
+        "INVALID_PIN",
+        "PIN_REQUIRED",
+        "INVALID_SESSION",
+        "SESSION_EXPIRED",
+        "STUDENT_NOT_FOUND",
+        "COURSE_NOT_FOUND"
+      ].includes(lastError.code);
+
+      if (doNotRetry || attempt >= maxAttempts) {
+        throw lastError;
+      }
+
+      await wait(700 * attempt);
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
-  return payload.data;
+
+  throw lastError || new Error("เชื่อมต่อระบบไม่ได้");
 }
 
 async function teacherLogin(event) {
@@ -137,19 +261,52 @@ function logout() {
 }
 
 async function loadTeacherData() {
+  const requestedCourse = state.teacherCourse;
+  const cacheKey = teacherCacheKey(requestedCourse);
+
+  const memoryData =
+    state.teacherData?.course?.courseCode === requestedCourse
+      ? state.teacherData
+      : null;
+
+  const cachedData = readCache(cacheKey);
+  const fallbackData = memoryData || cachedData;
+
+  // แสดงข้อมูลล่าสุดก่อน ไม่ปล่อยให้หน้าเว็บว่างขณะรอ Google Sheet
+  if (fallbackData) {
+    state.teacherData = fallbackData;
+    populateTeacherCourses();
+    renderTeacher();
+  }
+
   try {
-    setLoading(true);
-    state.teacherData = await api("teacherBootstrap", {
+    setLoading(!fallbackData);
+
+    const freshData = await api("teacherBootstrap", {
       token: state.teacherToken,
-      courseCode: state.teacherCourse
+      courseCode: requestedCourse
     });
-    state.teacherCourse = state.teacherData.course.courseCode;
+
+    state.teacherData = freshData;
+    state.teacherCourse = freshData.course.courseCode;
     localStorage.setItem("mossTeacherCourse", state.teacherCourse);
+
+    writeCache(teacherCacheKey(state.teacherCourse), freshData);
+
     populateTeacherCourses();
     renderTeacher();
   } catch (error) {
-    if (["INVALID_SESSION", "SESSION_EXPIRED"].includes(error.code)) logout();
-    toast(error.message, true);
+    if (["INVALID_SESSION", "SESSION_EXPIRED"].includes(error.code)) {
+      logout();
+      toast("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่", true);
+      return;
+    }
+
+    if (fallbackData) {
+      toast("อัปเดตข้อมูลใหม่ไม่ได้ กำลังแสดงข้อมูลล่าสุดที่บันทึกไว้", true);
+    } else {
+      toast(error.message || "โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่", true);
+    }
   } finally {
     setLoading(false);
   }
@@ -314,6 +471,7 @@ async function scanStudent(rawValue) {
     renderAssignments();
     renderStudents();
     renderSummary();
+    saveCurrentTeacherData();
 
     if (
       $("#rosterDialog").open &&
@@ -824,6 +982,7 @@ async function changeStatus(
     renderAssignments();
     renderStudents();
     renderSummary();
+    saveCurrentTeacherData();
 
 
     const statusMeta =
